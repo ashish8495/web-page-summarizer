@@ -217,7 +217,8 @@ def process_summarization(url: str, length: str, format_type: str):
                     'summary': summary_result['summary'],
                     'stats': stats,
                     'length': length,
-                    'format': format_type
+                    'format': format_type,
+                    'model_used': summary_result.get('model_used', config.GEMINI_MODEL)
                 }
                 
                 status.update(label="✅ Complete!", state="complete")
@@ -241,6 +242,10 @@ def render_results():
     # Title and source
     st.markdown(f"### {result['title']}")
     st.caption(f"🔗 Source: [{extract_domain(result['url'])}]({result['url']})")
+    
+    # Show model info if fallback was used
+    if 'model_used' in result and result['model_used'] != config.GEMINI_MODEL:
+        st.info(f"ℹ️ Used backup model: **{result['model_used']}** (primary model was busy)")
     
     # Summary in a nice container
     st.markdown("#### 📝 Summary")
