@@ -13,7 +13,12 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Gemini Model Settings
-GEMINI_MODEL = "gemini-2.5-flash"  # Stable and fast model
+GEMINI_MODEL = "gemini-2.5-flash"  # Primary model - Stable and fast
+GEMINI_FALLBACK_MODELS = [
+    "gemini-1.5-flash",      # Backup 1 - Very stable, widely available
+    "gemini-1.5-pro",        # Backup 2 - More powerful, good availability
+    "gemini-2.0-flash-exp"   # Backup 3 - Experimental but fast
+]
 GEMINI_TEMPERATURE = 0.3  # Lower = more focused, higher = more creative
 GEMINI_MAX_TOKENS = 2048  # Maximum tokens for response
 
@@ -96,5 +101,3 @@ CACHE_EXPIRY = 3600  # 1 hour in seconds
 # Logging Settings
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-# Made with Bob
