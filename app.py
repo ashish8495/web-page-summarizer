@@ -43,19 +43,25 @@ def render_sidebar():
     with st.sidebar:
         st.title("⚙️ Settings")
         
-        # API Key input
-        st.subheader("🔑 API Configuration")
-        api_key = st.text_input(
-            "Google Gemini API Key",
-            value=st.session_state.api_key,
-            type="password",
-            help="Get your free API key from https://makersuite.google.com/app/apikey"
-        )
-        st.session_state.api_key = api_key
-        
-        if not api_key or api_key == "your_api_key_here":
-            st.warning("⚠️ Please enter your Gemini API key to use the summarizer")
-            st.markdown("[Get API Key →](https://makersuite.google.com/app/apikey)")
+        # API Key configuration - only show if not set in secrets
+        if st.session_state.api_key and st.session_state.api_key != "your_api_key_here":
+            # API key is configured - show status
+            st.success("✅ API Key Configured")
+            st.caption("Ready to summarize!")
+        else:
+            # No API key - show input for local development
+            st.subheader("🔑 API Configuration")
+            api_key = st.text_input(
+                "Google Gemini API Key",
+                value=st.session_state.api_key,
+                type="password",
+                help="Get your free API key from https://makersuite.google.com/app/apikey"
+            )
+            st.session_state.api_key = api_key
+            
+            if not api_key or api_key == "your_api_key_here":
+                st.warning("⚠️ Please enter your Gemini API key to use the summarizer")
+                st.markdown("[Get API Key →](https://makersuite.google.com/app/apikey)")
         
         st.divider()
         
@@ -349,5 +355,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# Made with Bob
