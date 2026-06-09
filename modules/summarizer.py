@@ -64,6 +64,44 @@ def build_prompt(content: str, length: str, format_type: str) -> str:
     return prompt
 
 
+def generate_summary_with_model(
+    client: genai.Client,
+    model: str,
+    prompt: str,
+    generation_config: types.GenerateContentConfig
+) -> Optional[str]:
+    """
+    Try to generate summary with a specific model
+    
+    Args:
+        client: Gemini client instance
+        model: Model name to use
+        prompt: The prompt to send
+        generation_config: Generation configuration
+        
+    Returns:
+        str: Generated summary if successful, None otherwise
+    """
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=generation_config
+        )
+        
+        if response and response.text:
+            return response.text.strip()
+        return None
+        
+    except Exception as e:
+        error_str = str(e)
+        # Only return None for 503 errors (server overload)
+        # Re-raise other errors
+        if '503' in error_str or 'UNAVAILABLE' in error_str.upper():
+            return None
+        raise
+
+
 def generate_summary(
     content: str,
     api_key: str,
@@ -71,7 +109,7 @@ def generate_summary(
     format_type: str = "Bullets"
 ) -> Dict[str, any]:
     """
-    Generate a summary using Google Gemini API
+    Generate a summary using Google Gemini API with automatic fallback
     
     Args:
         content: Text content to summarize
@@ -80,7 +118,7 @@ def generate_summary(
         format_type: Output format (Bullets/Paragraph)
         
     Returns:
-        dict: Contains 'summary', 'success', and optional 'error'
+        dict: Contains 'summary', 'success', 'model_used', and optional 'error'
     """
     try:
         # Initialize Gemini
@@ -100,20 +138,46 @@ def generate_summary(
             max_output_tokens=config.GEMINI_MAX_TOKENS,
         )
         
-        # Generate summary
-        response = client.models.generate_content(
-            model=config.GEMINI_MODEL,
-            contents=prompt,
-            config=generation_config
-        )
+        # Try primary model first
+        models_to_try = [config.GEMINI_MODEL] + config.GEMINI_FALLBACK_MODELS
+        summary = None
+        model_used = None
+        last_error = None
         
-        if not response or not response.text:
+        for model in models_to_try:
+            try:
+                summary = generate_summary_with_model(
+                    client, model, prompt, generation_config
+                )
+                
+                if summary:
+                    model_used = model
+                    break
+                    
+            except Exception as e:
+                last_error = str(e)
+                # Continue to next model
+                continue
+        
+        if not summary:
+            # All models failed
+            error_message = last_error if last_error else "Failed to generate summary with any available model."
+            
+            # Handle specific API errors
+            if last_error:
+                if 'API_KEY' in last_error.upper() or 'INVALID' in last_error.upper():
+                    error_message = config.ERROR_MESSAGES['api_error']
+                elif 'QUOTA' in last_error.upper() or 'RATE_LIMIT' in last_error.upper():
+                    error_message = "⚠️ API rate limit reached. Please wait a moment and try again."
+                elif '404' in last_error or 'not found' in last_error.lower():
+                    error_message = f"⚠️ Model not available. Please check your API configuration. Details: {last_error}"
+                else:
+                    error_message = f"{config.ERROR_MESSAGES['api_error']} Details: {last_error}"
+            
             return {
                 'success': False,
-                'error': 'Failed to generate summary. Please try again.'
+                'error': error_message
             }
-        
-        summary = response.text.strip()
         
         # Post-process the summary
         summary = post_process_summary(summary, format_type)
@@ -122,7 +186,8 @@ def generate_summary(
             'success': True,
             'summary': summary,
             'length': length,
-            'format': format_type
+            'format': format_type,
+            'model_used': model_used
         }
         
     except Exception as e:
@@ -209,5 +274,3 @@ def validate_api_key(api_key: str) -> bool:
         return False
     
     return True
-
-# Made with Bob
